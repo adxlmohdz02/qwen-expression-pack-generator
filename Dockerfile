@@ -18,14 +18,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    GALLERY_DIR=/data/gallery
 
-COPY app.py expressions.py packager.py qwen_client.py ./
+COPY app.py expressions.py packager.py qwen_client.py gallery.py api_gallery.py ./
+COPY imagine_router ./imagine_router
+COPY pipeline ./pipeline
 
 EXPOSE 7865
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:7865/api/presets || exit 1
 
-# Bind to 0.0.0.0 so the port is reachable from outside the container
 CMD ["python", "app.py"]
