@@ -10,6 +10,27 @@ Powered by [`jblast94/Qwen-Image-Edit-NSFW`](https://huggingface.co/spaces/jblas
 
 ---
 
+## Gallery-first generate (issues #1 / #3)
+
+Default `POST /api/generate` writes a local gallery folder + `manifest.json`.
+SillyTavern / Lumiverse packs moved to `POST /api/generate/packs`.
+
+```bash
+# QA smoke — no API keys
+python -m pipeline.generate --ref photo.png --character Missy --count 6 --backend mock
+
+# Live path (Imagine → Qwen fallback)
+export XAI_API_KEY=...
+export HF_TOKEN=...          # optional, Qwen fallback
+python -m pipeline.generate --ref photo.png --character Missy --count 6 --backend auto
+```
+
+Env: `GALLERY_DIR` (default `/data/gallery`), `XAI_API_KEY` / `XAI_API_KEY_2` / `XAI_API_KEY_3`, `HF_TOKEN`.
+
+Backends: `auto` (default) | `imagine` | `qwen` | `mock`.
+
+---
+
 ## 1. Deploy the service (any node)
 
 On the machine that should run the generator (`ai1` or a worker):
@@ -19,6 +40,7 @@ git clone https://github.com/Jblast94/qwen-expression-pack-generator.git
 cd qwen-expression-pack-generator
 
 export HF_TOKEN=hf_xxxxxxxx   # optional, recommended
+export XAI_API_KEY=xai-...    # Imagine primary path
 
 # Standalone stack — does NOT touch SillyTavern
 docker compose -f docker-compose.service.yml up -d --build
@@ -64,16 +86,26 @@ The extension runs **in the browser**. Set **Backend URL** to whatever reaches t
 
 Do **not** use `http://expression-pack:7865` — that name only exists on the Docker network, not in the browser.
 
+The ST extension should call `POST /api/generate/packs` if it still wants a ZIP.
+
 ---
 
-## API (agents / n8n)
+## API (agents / n8n / Dagger)
 
 ```bash
+# Gallery (default)
 curl -X POST http://<host>:7865/api/generate \
   -F "file=@reference.png" \
-  -F "preset=full_pack" \
+  -F "preset=standard_28" \
   -F "character_name=Missy" \
-  -F "steps=4"
+  -F "count=6" \
+  -F "backend=auto"
+
+# Old ST + Lumiverse packs
+curl -X POST http://<host>:7865/api/generate/packs \
+  -F "file=@reference.png" \
+  -F "preset=full_pack" \
+  -F "character_name=Missy"
 ```
 
 Presets: `standard_28` | `nsfw_extra` | `full_pack`
@@ -84,14 +116,12 @@ Presets: `standard_28` | `nsfw_extra` | `full_pack`
 
 ```
 main branch
-├── app.py, qwen_client.py, expressions.py, packager.py
+├── app.py, qwen_client.py, expressions.py, packager.py, gallery.py, api_gallery.py
+├── imagine_router/           ← issue #3
+├── pipeline/generate.py      ← issue #1 CLI
 ├── Dockerfile
-├── docker-compose.service.yml   ← use this (standalone)
-├── docker-compose.yml           ← optional example only
-└── extension/ / st-extension/    ← extension source
-
-extension branch
-├── manifest.json, index.js, style.css   ← at root for ST Git install
+├── docker-compose.service.yml
+└── st-extension/
 ```
 
 ---
